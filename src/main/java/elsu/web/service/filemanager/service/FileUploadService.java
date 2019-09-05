@@ -1,4 +1,4 @@
-package ws.file.svc.service;
+package elsu.web.service.filemanager.service;
 
 import java.io.*;
 import java.util.*;
@@ -8,15 +8,16 @@ import javax.servlet.http.*;
 import javax.ws.rs.*;
 import javax.ws.rs.core.*;
 
-import org.apache.tomcat.util.http.fileupload.*;
-import org.apache.tomcat.util.http.fileupload.disk.*;
-import org.apache.tomcat.util.http.fileupload.servlet.*;
-import org.apache.tomcat.util.http.fileupload.util.*;
+import org.apache.commons.fileupload.*;
+import org.apache.commons.fileupload.disk.*;
+import org.apache.commons.fileupload.servlet.*;
+import org.apache.commons.fileupload.util.*;
+import org.apache.commons.io.*;
 
 //import com.google.gson.Gson;
 
 @Path("/upload")
-public class FileServiceUpload {
+public class FileUploadService {
 
 	@Context
 	ServletContext servletContext;
