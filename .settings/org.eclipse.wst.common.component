@@ -2,6 +2,9 @@
     <wb-module deploy-name="FileManagerSVC">
         <wb-resource deploy-path="/" source-path="/src/main/webapp" tag="defaultRootSource"/>
         <wb-resource deploy-path="/WEB-INF/classes" source-path="/src/main/java"/>
+        <dependent-module archiveName="ElsuFoundation.jar" deploy-path="/WEB-INF/lib" handle="module:/resource/ElsuFoundation/ElsuFoundation">
+            <dependency-type>uses</dependency-type>
+        </dependent-module>
         <property name="context-root" value="FileManagerSVC"/>
         <property name="java-output-path" value="/FileManagerSVC/target/classes"/>
     </wb-module>

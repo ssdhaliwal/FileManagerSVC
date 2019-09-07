@@ -3,6 +3,7 @@
 	<name>FileManagerSVC</name>
 	<comment></comment>
 	<projects>
+		<project>ElsuFoundation</project>
 	</projects>
 	<buildSpec>
 		<buildCommand>

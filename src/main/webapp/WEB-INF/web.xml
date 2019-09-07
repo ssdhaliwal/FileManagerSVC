@@ -26,4 +26,9 @@
 	<session-config>
 		<session-timeout>30</session-timeout>
 	</session-config>
+
+    <context-param>
+        <param-name>config.dump</param-name>
+        <param-value>true</param-value>
+    </context-param>
 </web-app>

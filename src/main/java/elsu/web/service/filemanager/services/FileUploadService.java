@@ -1,4 +1,4 @@
-package elsu.web.service.filemanager.service;
+package elsu.web.service.filemanager.services;
 
 import java.io.*;
 import java.util.*;
@@ -14,30 +14,47 @@ import org.apache.commons.fileupload.servlet.*;
 import org.apache.commons.fileupload.util.*;
 import org.apache.commons.io.*;
 
+import elsu.web.service.filemanager.application.*;
+
 //import com.google.gson.Gson;
 
 @Path("/upload")
-public class FileUploadService {
+public class FileUploadService extends BaseConfigManager {
 
 	@Context
-	ServletContext servletContext;
+	ServletContext context;
+	
+	@Context 
+	HttpServletRequest request;
+
+	public FileUploadService() {
+	}
+
+	@Override
+	protected void initializeService() throws Exception {
+		super.initializeService();
+	}
 
 	@GET
 	@Path("/status")
 	@Produces("text/plain")
 	public String getStatus() {
+		try {
+			this.initializeService();
+		} catch (Exception e) {
+			System.out.println(e);
+			e.printStackTrace();
+		}
+		
 		return "File Uploader";
 	}
 
-	private File getWorkingDir(@Context ServletContext context) {
-
+	private File getWorkingDir(String userName) {
 		ClassLoader classLoader = getClass().getClassLoader();
 		String realPath = context.getRealPath("/WEB-INF/resources/examples");
 		File exDir = new File(realPath);
 		
-		//File exDir = new File(classLoader.getResource("resources/examples").getPath());
-
-		File resultDir = new File(exDir.getParent() + File.separator + "results");
+		File resultDir = new File(exDir.getParent() + File.separator + "uploads" + File.separator + userName);
 		if (!resultDir.exists()) {
 			System.out.println("working directory " + resultDir.getAbsolutePath() + " doesnt exist, attempt to create it... ");
 			resultDir.mkdirs();
@@ -49,12 +66,11 @@ public class FileUploadService {
 	@POST
 	@Path("/file")
 	@Consumes(MediaType.MULTIPART_FORM_DATA)
-	@Produces(MediaType.APPLICATION_JSON)
-	public Response storeFile(@Context HttpServletRequest request, @Context ServletContext context) {
-		// String candidateName = null;
-		File dir = getWorkingDir(context);
+	@Produces(MediaType.TEXT_PLAIN)
+	public Response storeFile() {
 		List<String> uploaded = new ArrayList<String>();
-
+		String userName = "", data = "";
+		
 		System.out.println(request.getContentType());
 
 		// checks whether there is a file upload request or not
@@ -66,30 +82,29 @@ public class FileUploadService {
 				 * parseRequest returns a list of FileItem but in old (pre-java5) style
 				 */
 				// final List items = fileUpload.parseRequest(request);
-
 				FileItemIterator iter = fileUpload.getItemIterator(request);
 
-				// if (items != null) {
-				// final Iterator iter = items.iterator();
 				while (iter.hasNext()) {
 					final FileItemStream item = iter.next();
 					final String itemName = item.getName();
 					final String fieldName = item.getFieldName();
-					// final String fieldValue = item.getString();
 
 					InputStream stream = item.openStream();
 
 					if (item.isFormField()) {
-						// candidateName = stream.asString(stream);
-						System.out.println("Field Name: " + fieldName + ", andidate Name: " + Streams.asString(stream));
+						data = Streams.asString(stream);
+						System.out.println("Field Name: " + fieldName + ", Value: " + data);
+						
+						if (fieldName.equals("userName")) {
+							userName = data;
+						}
 					} else {
+						// if the user name is not specified; then exit with error
 						System.out.println(
-								"File field " + fieldName + " with file name " + item.getName() + " detected.");
+								"File field " + fieldName + " with file name " + itemName + " detected.");
+						File dir = getWorkingDir(userName);
 
 						final File targetFile = new File(dir.getPath() + File.separator + itemName.toLowerCase());
-						// System.out.println("Saving the file: " + savedFile.getName());
-						// item.write(savedFile);
-
 						OutputStream outStream = new FileOutputStream(targetFile);
 
 						byte[] buffer = new byte[8 * 1024];
@@ -97,14 +112,12 @@ public class FileUploadService {
 						while ((bytesRead = stream.read(buffer)) != -1) {
 							outStream.write(buffer, 0, bytesRead);
 						}
-						IOUtils.closeQuietly(stream);
 						IOUtils.closeQuietly(outStream);
 
 						uploaded.add(dir.getPath() + File.separator + itemName.toLowerCase());
 					}
-
+					IOUtils.closeQuietly(stream);
 				}
-				// }
 			} catch (FileUploadException e) {
 				System.out.println(e);
 				e.printStackTrace();
@@ -122,10 +135,10 @@ public class FileUploadService {
 
 		//Gson gson = new Gson();
 		//String json = gson.toJson(uploaded);
-		String json = "{result: " + uploaded + "}";
+		String json = "result: " + uploaded;
 
-		return Response.ok().entity(json).header("Access-Control-Allow-Origin", "*")
-				.header("Access-Control-Allow-Methods", "POST").type(MediaType.MULTIPART_FORM_DATA).build();
+		return Response.status(Response.Status.OK).entity(json).header("Access-Control-Allow-Origin", "*")
+				.header("Access-Control-Allow-Methods", "POST").build();
 	}
 
 }

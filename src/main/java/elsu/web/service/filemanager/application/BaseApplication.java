@@ -8,21 +8,35 @@ import javax.ws.rs.core.*;
 
 import org.glassfish.jersey.server.*;
 
+import elsu.web.service.filemanager.resources.*;
+import elsu.web.service.filemanager.services.*;
+
 @ApplicationPath("/rest")
-public class BaseApplication extends ResourceConfig {
+public class BaseApplication extends Application {
 
     @Context
     ServletContext servletContext;
 
-    public BaseApplication() {
-        // Define the package which contains the service classes.
-    	addRestResourceClasses();
+    @Override
+    public Set<Class<?>> getClasses() {
+        Set<Class<?>> resources = new java.util.HashSet<>();
+
+        servletContext.setAttribute("shared.storage", new GlobalSet());
+        
+        addRestResourceClasses(resources);
+        return resources;
     }
 
-    private void addRestResourceClasses() {
-        packages("elsu.web.service.filemanager.service.HelloWorldService.class");
-        packages("elsu.web.service.filemanager.service.FileDownloadService.class");
-        packages("elsu.web.service.filemanager.service.FileUploadService.class");
+    /**
+     * Do not modify addRestResourceClasses() method.
+     * It is automatically populated with
+     * all resources defined in the project.
+     * If required, comment out calling this method in getClasses().
+     */
+    private void addRestResourceClasses(Set<Class<?>> resources) {
+        resources.add(HelloWorldService.class);
+        resources.add(FileDownloadService.class);
+        resources.add(FileUploadService.class);
     }
 
 }

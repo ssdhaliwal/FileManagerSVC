@@ -1,20 +1,332 @@
-<!DOCTYPE html PUBLIC "-//W3C//DTD HTML 4.01 Strict//EN" "http://www.w3.org/TR/html4/strict.dtd">
+<!DOCTYPE html>
 <html>
 <head>
-<meta http-equiv="Content-Type" content="text/html; charset=UTF-8">
-<title>File Manager SVC</title>
+<meta http-equiv="Content-Type" content="text/html; charset=UTF-8" />
+<link href='https://fonts.googleapis.com/css?family=Titillium+Web:400'
+	rel='stylesheet' type='text/css'>
+<style type="text/css">
+body {
+	margin: 0;
+	font-family: "Titillium Web";
+	font-size: 15px;
+}
+
+#container {
+	width: 650px;
+	margin: 60px auto;
+}
+
+#upload-choose-container {
+	
+}
+
+#upload-file {
+	display: none;
+}
+
+button {
+	background-color: white;
+	color: #336699;
+	border: 2px solid #336699;
+	font-family: inherit;
+	outline: none;
+	min-width: 100px;
+	padding: 5px 10px;
+	font-size: inherit;
+	border-radius: 2px;
+	cursor: pointer;
+}
+
+#choose-upload-button {
+	display: block;
+	margin: 0 auto;
+}
+
+#upload-file-final-container {
+	display: none;
+	text-align: center;
+}
+
+#file-name {
+	color: #336699;
+	display: inline-block;
+	vertical-align: middle;
+}
+
+#upload-button {
+	display: inline-block;
+	vertical-align: middle;
+	margin: 0 30px;
+}
+
+#cancel-button {
+	display: inline-block;
+	vertical-align: middle;
+	color: #777777;
+	border: 2px solid #777777;
+}
+
+#upload-progress {
+	margin: 20px 0 0 0;
+	text-align: center;
+	display: none;
+}
+
+#error-message {
+	display: none;
+	text-align: center;
+	color: #c0392b;
+	margin: 20px 0 0 0;
+}
+</style>
 </head>
+
 <body>
-	<h1>Status - OK</h1>
- 
-	<form action="rest/upload/file" method="post" enctype="multipart/form-data">
- 
-	   <p>
-		Select a file : <input type="file" name="file" size="45" />
-	   </p>
- 
-	   <input type="submit" value="Upload It" />
-	</form>
- 
+
+	<div id="container">
+		<div id="upload-container">
+			<div id="upload-choose-container">
+				<input type="file" id="upload-file"
+					accept="image/jpeg, image/png, text/plain" />
+				<button id="choose-upload-button">Choose file</button>
+				</br> </br>
+			</div>
+			<div>
+				<label>User Name:</label><input type="text" id="uUserName"></input></br>
+				<label>Text:</label>
+				<textarea rows="5" cols="60" id="description"></textarea>
+				</br> </br>
+			</div>
+			<div id="upload-file-final-container">
+				<span id="file-name"></span>
+				<button id="upload-button">Upload</button>
+				<button id="cancel-button">Cancel</button>
+			</div>
+			<div id="upload-progress">
+				<span id="upload-percentage"></span> % uploaded
+			</div>
+		</div>
+		<div id="download-container">
+			<label>User Name:</label><input type="text" id="dUserName"></input></br> <label>File
+				Name:</label><input type="text" id="dFileName"></input></br>
+			<button id="download-button">Download</button>
+			</br> </br>
+			<div id="download-content"></div>
+			<div id="error-message"></div>
+		</div>
+	</div>
+	<script>
+		// https://developers.google.com/web/updates/2012/06/How-to-convert-ArrayBuffer-to-and-from-String
+		function ab2str(buf) {
+			return String.fromCharCode.apply(null, new Uint8Array(buf));
+		}
+		function str2ab(str) {
+			var buf = new ArrayBuffer(str.length * 2); // 2 bytes for each char
+			var bufView = new Uint8Array(buf);
+			for (var i = 0, strLen = str.length; i < strLen; i++) {
+				bufView[i] = str.charCodeAt(i);
+			}
+			return buf;
+		}
+		
+		function removeChildren(nodeName) {
+			var parentNode = document.getElementById(nodeName);
+			while (parentNode.firstChild) {
+				parentNode.removeChild(parentNode.firstChild);
+			}
+		}
+
+		// Show the file browse dialog
+		document.querySelector('#choose-upload-button').addEventListener(
+				'click', function() {
+					document.querySelector('#upload-file').click();
+				});
+
+		// When a new file is selected
+		document
+				.querySelector('#upload-file')
+				.addEventListener(
+						'change',
+						function() {
+							var file = this.files[0], excel_mime_types = [
+									'image/jpeg', 'image/png', 'text/plain' ];
+
+							document.querySelector('#error-message').style.display = 'none';
+
+							// Validate MIME type
+							if (excel_mime_types.indexOf(file.type) == -1) {
+								document.querySelector('#error-message').style.display = 'block';
+								document.querySelector('#error-message').innerText = 'Error : Only JPEG and PNG and TXT files allowed';
+								return;
+							}
+
+							// Max 2 Mb allowed
+							if (file.size > 15 * 1024 * 1024) {
+								document.querySelector('#error-message').style.display = 'block';
+								document.querySelector('#error-message').innerText = 'Error : Exceeded size 15MB';
+								return;
+							}
+
+							document.querySelector('#upload-choose-container').style.display = 'none';
+							document
+									.querySelector('#upload-file-final-container').style.display = 'block';
+							document.querySelector('#file-name').innerText = file.name;
+						});
+
+		// Cancel button event
+		document
+				.querySelector('#cancel-button')
+				.addEventListener(
+						'click',
+						function() {
+							document.querySelector('#error-message').style.display = 'none';
+							document.querySelector('#upload-choose-container').style.display = 'block';
+							document
+									.querySelector('#upload-file-final-container').style.display = 'none';
+
+							document.querySelector('#upload-file')
+									.setAttribute('value', '');
+						});
+
+		// Upload via AJAX
+		document
+				.querySelector('#upload-button')
+				.addEventListener(
+						'click',
+						function() {
+							var data = new FormData(), request;
+
+							data.append('userName', document
+									.querySelector('#uUserName').value);
+							data.append('description', document
+									.querySelector('#description').value);
+							data.append('file', document
+									.querySelector('#upload-file').files[0]);
+
+							var request = new XMLHttpRequest();
+							request
+									.addEventListener(
+											'load',
+											function(e) {
+												document
+														.querySelector('#upload-progress').style.display = 'none';
+
+												if (request.status !== 200) {
+													document
+															.querySelector('#error-message').innerText = request.response.message;
+													document
+															.querySelector('#error-message').style.display = 'block';
+												} else {
+													document.querySelector(
+															'#cancel-button')
+															.click();
+													console
+															.log(request.response);
+													alert('File uploaded successfully');
+												}
+											});
+							request.upload
+									.addEventListener(
+											'progress',
+											function(e) {
+												var percent_complete = (e.loaded / e.total) * 100;
+
+												document
+														.querySelector('#upload-percentage').innerText = percent_complete;
+												document
+														.querySelector('#upload-progress').style.display = 'block';
+											});
+							request.responseType = 'text/plain';
+							request.open('post',
+									'/FileManagerSVC/rest/upload/file');
+							request.send(data);
+						});
+
+		document
+				.querySelector('#download-button')
+				.addEventListener(
+						'click',
+						function() {
+							var data = new FormData(), request;
+
+							var localdata = {
+								"fileName" : document
+									.querySelector('#dFileName').value,
+								"userName" : document
+										.querySelector('#dUserName').value
+							};
+							for (name in localdata) {
+								data.append(name, localdata[name]);
+							}
+
+							var request = new XMLHttpRequest();
+							request
+									.addEventListener(
+											'load',
+											function(e) {
+												document
+														.querySelector('#upload-progress').style.display = 'none';
+
+												if (request.status !== 200) {
+													document
+															.querySelector('#error-message').innerText = request.response.message;
+													document
+															.querySelector('#error-message').style.display = 'block';
+												} else {
+													removeChildren("download-content");
+													var contentType = request
+															.getResponseHeader("Content-Type");
+													var blob = new Blob(
+															[ request.response ],
+															{
+																type : contentType
+															});
+
+													if (contentType
+															.startsWith("image")) {
+														var imageNode = document
+																.createElement("img");
+														imageNode
+																.setAttribute(
+																		"height",
+																		"500");
+														imageNode.setAttribute(
+																"width", "768");
+
+														var imageUrl = window.URL
+																.createObjectURL(blob);
+														imageNode.src = imageUrl;
+														document
+																.getElementById(
+																		"download-content")
+																.appendChild(
+																		imageNode);
+													} else {
+														console.log(
+																"not an image",
+																contentType);
+														var pNode = document
+																.createElement("P");
+														var tNode = document
+																.createTextNode(ab2str(request.response));
+														pNode
+																.appendChild(tNode);
+														document
+																.getElementById(
+																		"download-content")
+																.appendChild(
+																		pNode);
+													}
+
+													alert('File downloaded successfully');
+												}
+											});
+							request.responseType = "arraybuffer";
+							request.open('post',
+									'/FileManagerSVC/rest/download/file');
+							request.send(data);
+						});
+	</script>
+
 </body>
 </html>
