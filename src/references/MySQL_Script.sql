@@ -35,7 +35,7 @@ create unique index uq_filedata on filedata(filelist_id);
 delimiter //
 drop procedure if exists updateFile //
 create procedure updateFile(IN iusername varchar(80), IN ifilename varchar(250), IN iispublic varchar(1),
-	IN imimetype varchar(35), IN idata BLOB, OUT ouserid bigint, OUT ofileid bigint, OUT odataid bigint)
+	IN imimetype varchar(35), IN idata longblob, OUT ouserid bigint, OUT ofileid bigint, OUT odataid bigint)
 begin
 	declare user_id bigint default 0;
     declare file_id bigint default 0;
@@ -94,5 +94,6 @@ delimiter ;
 
 select * from vwFile;
 select * from vwFileData;
+select 'filelist' as name, count(*) from filelist union select 'filedata' as name, count(*) from filedata;
 
 call updateFile("test", "test", "Y", "image/png", "tehis is a test", @oid, @fid, @did);

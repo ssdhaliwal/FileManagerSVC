@@ -160,7 +160,7 @@ button {
 								return;
 							}
 
-							// Max 2 Mb allowed
+							// Max 15 Mb allowed
 							if (file.size > 15 * 1024 * 1024) {
 								document.querySelector('#error-message').style.display = 'block';
 								document.querySelector('#error-message').innerText = 'Error : Exceeded size 15MB';

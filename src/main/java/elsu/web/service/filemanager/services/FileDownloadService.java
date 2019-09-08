@@ -29,11 +29,17 @@ public class FileDownloadService extends BaseConfigManager {
 	@Context
 	HttpServletRequest request;
 
-	private String mysqlDriver = "com.mysql.jdbc.Driver";
-	private String mysqlHost = "localhost";
-	private String mysqlPort = "3306";
-	private String mysqlUser = "filemanageruser";
-	private String mysqlPassword = "fmcu";
+	private String dbJDBC = "mysql";
+	private String dbDriver = "com.mysql.jdbc.Driver";
+	private String dbDatabase = "filemanagersvc";
+	private String dbOptionalParams = "noAccessToProcedureBodies=true";
+	private String dbHost = "localhost";
+	private String dbPort = "3306";
+	private String dbUser = "filemanageruser";
+	private String dbPassword = "fmcu";
+	private String fileStoreType = "relative";
+	private String fileStorePath = "/WEB-INF/resources/examples";
+	private Integer bufferSize = 8;
 
 	public FileDownloadService() {
 	}
@@ -47,15 +53,26 @@ public class FileDownloadService extends BaseConfigManager {
 	@Path("/status")
 	@Produces("text/plain")
 	public String getStatus() {
+		try {
+			this.initializeService();
+		} catch (Exception e) {
+			System.out.println(e);
+			e.printStackTrace();
+		}
+		
 		return "File Downloader";
 	}
 
 	private File getWorkingDir(String userName) {
-		ClassLoader classLoader = getClass().getClassLoader();
-		String realPath = context.getRealPath("/WEB-INF/resources/examples");
+		String realPath = "";
+		if (fileStoreType.equals("relative")) {
+			realPath = context.getRealPath(fileStorePath);
+		} else {
+			realPath = fileStorePath;
+		}
 		File exDir = new File(realPath);
 
-		File resultDir = new File(exDir.getParent() + File.separator + "uploads" + File.separator + userName);
+		File resultDir = new File(exDir.getPath() + File.separator + userName);
 		if (!resultDir.exists()) {
 			System.out.println(
 					"working directory " + resultDir.getAbsolutePath() + " doesnt exist, attempt to create it... ");
@@ -93,6 +110,28 @@ public class FileDownloadService extends BaseConfigManager {
 		List<String> uploaded = new ArrayList<String>();
 		FileDownloadType fdt = new FileDownloadType();
 		String fileName = "", userName = "", data = "";
+
+		try {
+			this.initializeService();
+			
+			fileStoreType = config.getProperty("application.service.fileStore.type").toString();
+			fileStorePath = config.getProperty("application.service.fileStore.path").toString();
+			dbJDBC = config.getProperty("application.service.database.jdbc").toString();
+			dbDriver = config.getProperty("application.service.database.driver").toString();
+			dbHost = config.getProperty("application.service.database.host").toString();
+			dbPort = config.getProperty("application.service.database.port").toString();
+			dbDatabase = config.getProperty("application.service.database.database").toString();
+			dbOptionalParams = config.getProperty("application.service.database.optionalParameters").toString();
+			dbUser = config.getProperty("application.service.database.user").toString();
+			dbPassword = config.getProperty("application.service.database.password").toString();
+			bufferSize = Integer.valueOf(config.getProperty("application.service.fileDownload.bufferSize").toString());
+		} catch (Exception e) {
+			System.out.println(e);
+			e.printStackTrace();
+			return Response.status(Response.Status.INTERNAL_SERVER_ERROR).entity(e.getMessage())
+					.header("Access-Control-Allow-Origin", "*").header("Access-Control-Allow-Methods", "POST")
+					.build();
+		}
 
 		if (ServletFileUpload.isMultipartContent(request)) {
 			System.out.println("multipart form data");
@@ -172,17 +211,16 @@ public class FileDownloadService extends BaseConfigManager {
 		ByteArrayOutputStream baos = new ByteArrayOutputStream();
 
 		try {
-			Class.forName(mysqlDriver).newInstance();
+			Class.forName(dbDriver).newInstance();
 		} catch (Exception e) {
 			System.out.println(e.getMessage());
 
 		}
 
-		String mysqlURL = "jdbc:mysql://" + mysqlHost + ":" + mysqlPort
-				+ "/filemanagersvc?noAccessToProcedureBodies=true";
+		String mysqlURL = "jdbc:" + dbJDBC + "://"+dbHost+":"+dbPort+"/" + dbDatabase + "?" + dbOptionalParams;
 		Properties properties = new java.util.Properties();
-		properties.setProperty("user", mysqlUser);
-		properties.setProperty("password", mysqlPassword);
+		properties.setProperty("user", dbUser);
+		properties.setProperty("password", dbPassword);
 
 		java.sql.Connection conn = null;
 		try {
@@ -200,7 +238,7 @@ public class FileDownloadService extends BaseConfigManager {
 				fdt.mimeType = rs.getString(6);
 				outStream = rs.getBinaryStream(8);
 
-				byte[] buffer = new byte[8 * 1024];
+				byte[] buffer = new byte[bufferSize * 1024];
 				int len;
 
 				while ((len = outStream.read(buffer)) != -1) {
