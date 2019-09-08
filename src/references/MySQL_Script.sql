@@ -41,12 +41,29 @@ begin
     declare file_id bigint default 0;
     declare data_id bigint default 0;
     
+    -- exception handling
+    -- declare continue handler for sqlwarning
+    -- begin
+    -- end;
+    declare continue handler for sqlexception
+    begin
+		rollback to savepoint user_created;
+        release savepoint user_created;
+    end;
+    -- declare continue handler for not found
+    -- begin
+    -- end;
+
+    start transaction WITH CONSISTENT SNAPSHOT;
+        
     -- check and update user
     select id into user_id from fileuser where username = iusername;
     if (user_id = 0) then
 		insert into fileuser(username) values (iusername);
         select LAST_INSERT_ID() into user_id;
     end if;
+    
+    savepoint user_created;
     
 	-- check and update filelist
 	select id into file_id from filelist where fileuser_id = user_id and filename = ifilename;
@@ -69,6 +86,10 @@ begin
 		delete from filedata where filelist_id = file_id;
     end if;
     
+    -- cleanup transcation
+	release savepoint user_created;
+	commit;
+
     -- return variables
     set ouserid = user_id;
     set ofileid = file_id;

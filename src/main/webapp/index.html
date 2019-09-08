@@ -116,17 +116,18 @@ button {
 		</div>
 	</div>
 	<script>
-		// https://developers.google.com/web/updates/2012/06/How-to-convert-ArrayBuffer-to-and-from-String
-		function ab2str(buf) {
-			return String.fromCharCode.apply(null, new Uint8Array(buf));
+		// https://developer.mozilla.org/en-US/docs/Web/API/TextDecoder/TextDecoder#Parameters
+		// https://developer.mozilla.org/en-US/docs/Web/API/TextEncoder
+		function encodeArray(string) {
+			var enc = new TextEncoder();	// always utf-8
+			return enc.encode(string);
 		}
-		function str2ab(str) {
-			var buf = new ArrayBuffer(str.length * 2); // 2 bytes for each char
-			var bufView = new Uint8Array(buf);
-			for (var i = 0, strLen = str.length; i < strLen; i++) {
-				bufView[i] = str.charCodeAt(i);
-			}
-			return buf;
+		
+		// https://developer.mozilla.org/en-US/docs/Web/API/TextDecoder
+		function decodeArray(uintArray) {
+			var enc = new TextDecoder("utf-8");
+			var arr = new Uint8Array(uintArray);
+			return enc.decode(arr);
 		}
 		
 		function removeChildren(nodeName) {
@@ -308,7 +309,7 @@ button {
 														var pNode = document
 																.createElement("P");
 														var tNode = document
-																.createTextNode(ab2str(request.response));
+																.createTextNode(decodeArray(request.response));
 														pNode
 																.appendChild(tNode);
 														document
