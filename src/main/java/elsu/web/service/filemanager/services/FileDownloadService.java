@@ -1,6 +1,8 @@
 package elsu.web.service.filemanager.services;
 
 import java.io.*;
+import java.math.*;
+import java.sql.*;
 import java.util.*;
 
 import javax.servlet.*;
@@ -16,6 +18,7 @@ import org.apache.commons.io.IOUtils;
 import org.apache.commons.lang3.*;
 
 import elsu.web.service.filemanager.application.*;
+import elsu.web.service.filemanager.resources.*;
 
 @Path("/download")
 public class FileDownloadService extends BaseConfigManager {
@@ -25,6 +28,12 @@ public class FileDownloadService extends BaseConfigManager {
 
 	@Context
 	HttpServletRequest request;
+
+	private String mysqlDriver = "com.mysql.jdbc.Driver";
+	private String mysqlHost = "localhost";
+	private String mysqlPort = "3306";
+	private String mysqlUser = "filemanageruser";
+	private String mysqlPassword = "fmcu";
 
 	public FileDownloadService() {
 	}
@@ -82,8 +91,7 @@ public class FileDownloadService extends BaseConfigManager {
 	@Produces(MediaType.TEXT_PLAIN)
 	public Response retreiveFile() {
 		List<String> uploaded = new ArrayList<String>();
-		String mimeType = "text/plain";
-		byte[] imageData = null;
+		FileDownloadType fdt = new FileDownloadType();
 		String fileName = "", userName = "", data = "";
 
 		if (ServletFileUpload.isMultipartContent(request)) {
@@ -113,28 +121,27 @@ public class FileDownloadService extends BaseConfigManager {
 
 							// check if file exists
 							File dir = getWorkingDir(userName);
+							/*
+							 * String fullFileName = dir.getPath() + File.separator +
+							 * fileName.toLowerCase(); java.nio.file.Path path = new
+							 * File(fullFileName).toPath(); mimeType =
+							 * java.nio.file.Files.probeContentType(path);
+							 * 
+							 * System.out.println("mimeType//" + mimeType);
+							 * 
+							 * InputStream inStream = new FileInputStream(fullFileName);
+							 * ByteArrayOutputStream baos = new ByteArrayOutputStream(); byte[] buffer = new
+							 * byte[8 * 1024]; int len;
+							 * 
+							 * while ((len = inStream.read(buffer)) != -1) { baos.write(buffer, 0, len); }
+							 * 
+							 * IOUtils.closeQuietly(inStream);
+							 * 
+							 * System.out.println(baos.size()); imageData = baos.toByteArray();
+							 * IOUtils.closeQuietly(baos);
+							 */
 
-							String fullFileName = dir.getPath() + File.separator + fileName.toLowerCase();
-							java.nio.file.Path path = new File(fullFileName).toPath();
-							mimeType = java.nio.file.Files.probeContentType(path);
-
-							System.out.println("mimeType//" + mimeType);
-
-							InputStream inStream = new FileInputStream(fullFileName);
-							ByteArrayOutputStream baos = new ByteArrayOutputStream();
-							byte[] buffer = new byte[8 * 1024];
-							int len;
-
-							while ((len = inStream.read(buffer)) != -1) {
-								System.out.println("... reading file//" + len + "//" + fullFileName);
-								baos.write(buffer, 0, len);
-							}
-
-							IOUtils.closeQuietly(inStream);
-
-							System.out.println(baos.size());
-							imageData = baos.toByteArray();
-							IOUtils.closeQuietly(baos);
+							fdt = retrieveUserData(userName, fileName);
 						}
 					}
 					IOUtils.closeQuietly(stream);
@@ -153,10 +160,70 @@ public class FileDownloadService extends BaseConfigManager {
 						.build();
 			}
 		}
-		System.out.println(request.getContentType());
+		System.out.println(request.getContentType() + "//" + fdt.mimeType);
 
-		return Response.ok(imageData).header("Content-Type", mimeType)
+		return Response.ok(fdt.imageData).header("Content-Type", fdt.mimeType)
 				.header("Content-Disposition", "attachment; filename=\"" + fileName + "\"").build();
+	}
+
+	FileDownloadType retrieveUserData(String user, String file) {
+		FileDownloadType fdt = new FileDownloadType();
+		InputStream outStream = null;
+		ByteArrayOutputStream baos = new ByteArrayOutputStream();
+
+		try {
+			Class.forName(mysqlDriver).newInstance();
+		} catch (Exception e) {
+			System.out.println(e.getMessage());
+
+		}
+
+		String mysqlURL = "jdbc:mysql://" + mysqlHost + ":" + mysqlPort
+				+ "/filemanagersvc?noAccessToProcedureBodies=true";
+		Properties properties = new java.util.Properties();
+		properties.setProperty("user", mysqlUser);
+		properties.setProperty("password", mysqlPassword);
+
+		java.sql.Connection conn = null;
+		try {
+			conn = java.sql.DriverManager.getConnection(mysqlURL, properties);
+
+			String sql = "select user_id, username, file_id, filename, ispublic, mimetype, date_updated, data "
+					+ "from vwFileData " + "where username = ? and filename = ?";
+			PreparedStatement statement = conn.prepareStatement(sql);
+			System.out.println(user);
+			statement.setString(1, user);
+			statement.setString(2, file);
+			ResultSet rs = statement.executeQuery();
+
+			if (rs.next() == true) {
+				fdt.mimeType = rs.getString(6);
+				outStream = rs.getBinaryStream(8);
+
+				byte[] buffer = new byte[8 * 1024];
+				int len;
+
+				while ((len = outStream.read(buffer)) != -1) {
+					baos.write(buffer, 0, len);
+				}
+			}
+		} catch (Exception e) {
+			System.out.println(e.getMessage());
+		} finally {
+			if (outStream != null) {
+				IOUtils.closeQuietly(outStream);
+			}
+			if (conn != null) {
+				try {
+					conn.close();
+				} catch (Exception exi) {
+				}
+			}
+		}
+
+		fdt.imageData = baos.toByteArray();
+		IOUtils.closeQuietly(baos);
+		return fdt;
 	}
 
 }

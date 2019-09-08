@@ -1,6 +1,8 @@
 package elsu.web.service.filemanager.services;
 
 import java.io.*;
+import java.math.*;
+import java.sql.*;
 import java.util.*;
 
 import javax.servlet.*;
@@ -23,9 +25,15 @@ public class FileUploadService extends BaseConfigManager {
 
 	@Context
 	ServletContext context;
-	
-	@Context 
+
+	@Context
 	HttpServletRequest request;
+
+	private String mysqlDriver = "com.mysql.jdbc.Driver";
+	private String mysqlHost = "localhost";
+	private String mysqlPort = "3306";
+	private String mysqlUser = "filemanageruser";
+	private String mysqlPassword = "fmcu";
 
 	public FileUploadService() {
 	}
@@ -45,7 +53,7 @@ public class FileUploadService extends BaseConfigManager {
 			System.out.println(e);
 			e.printStackTrace();
 		}
-		
+
 		return "File Uploader";
 	}
 
@@ -53,10 +61,11 @@ public class FileUploadService extends BaseConfigManager {
 		ClassLoader classLoader = getClass().getClassLoader();
 		String realPath = context.getRealPath("/WEB-INF/resources/examples");
 		File exDir = new File(realPath);
-		
+
 		File resultDir = new File(exDir.getParent() + File.separator + "uploads" + File.separator + userName);
 		if (!resultDir.exists()) {
-			System.out.println("working directory " + resultDir.getAbsolutePath() + " doesnt exist, attempt to create it... ");
+			System.out.println(
+					"working directory " + resultDir.getAbsolutePath() + " doesnt exist, attempt to create it... ");
 			resultDir.mkdirs();
 		}
 
@@ -70,7 +79,7 @@ public class FileUploadService extends BaseConfigManager {
 	public Response storeFile() {
 		List<String> uploaded = new ArrayList<String>();
 		String userName = "", data = "";
-		
+
 		System.out.println(request.getContentType());
 
 		// checks whether there is a file upload request or not
@@ -94,14 +103,13 @@ public class FileUploadService extends BaseConfigManager {
 					if (item.isFormField()) {
 						data = Streams.asString(stream);
 						System.out.println("Field Name: " + fieldName + ", Value: " + data);
-						
+
 						if (fieldName.equals("userName")) {
 							userName = data;
 						}
 					} else {
 						// if the user name is not specified; then exit with error
-						System.out.println(
-								"File field " + fieldName + " with file name " + itemName + " detected.");
+						System.out.println("File field " + fieldName + " with file name " + itemName + " detected.");
 						File dir = getWorkingDir(userName);
 
 						final File targetFile = new File(dir.getPath() + File.separator + itemName.toLowerCase());
@@ -114,6 +122,7 @@ public class FileUploadService extends BaseConfigManager {
 						}
 						IOUtils.closeQuietly(outStream);
 
+						storeUserData(userName, itemName, targetFile);
 						uploaded.add(dir.getPath() + File.separator + itemName.toLowerCase());
 					}
 					IOUtils.closeQuietly(stream);
@@ -133,12 +142,68 @@ public class FileUploadService extends BaseConfigManager {
 			}
 		}
 
-		//Gson gson = new Gson();
-		//String json = gson.toJson(uploaded);
 		String json = "result: " + uploaded;
 
 		return Response.status(Response.Status.OK).entity(json).header("Access-Control-Allow-Origin", "*")
 				.header("Access-Control-Allow-Methods", "POST").build();
 	}
 
+	void storeUserData(String user, String file, File inputFile) {
+		java.nio.file.Path path = inputFile.toPath();
+		String mimeType = "";
+		InputStream inStream = null;
+		
+		try {
+			Class.forName(mysqlDriver).newInstance();
+		} catch (Exception e) {
+			System.out.println(e.getMessage());
+
+		}
+		
+		String mysqlURL = "jdbc:mysql://"+mysqlHost+":"+mysqlPort+"/filemanagersvc?noAccessToProcedureBodies=true";
+		Properties properties = new java.util.Properties();
+		properties.setProperty("user", mysqlUser);
+		properties.setProperty("password", mysqlPassword);
+		
+		java.sql.Connection conn = null;
+		try {
+			conn = java.sql.DriverManager.getConnection(mysqlURL, properties);
+			
+			long oUserId, oFileId, oDataId;
+			
+			mimeType = java.nio.file.Files.probeContentType(path);
+			inStream = new FileInputStream(inputFile);
+			
+			String sql = "call updateFile(?, ?, ?, ?, ?, ?, ?, ?)";
+			CallableStatement statement = conn.prepareCall(sql);
+			System.out.println(user);
+			statement.setString(1, user);
+			statement.setString(2, file);
+			statement.setString(3, "N");
+			statement.setString(4, mimeType);
+			statement.setBlob(5, inStream);
+			statement.registerOutParameter(6, Types.BIGINT);
+			statement.registerOutParameter(7, Types.BIGINT);
+			statement.registerOutParameter(8, Types.BIGINT);
+			statement.execute();
+			
+			// get the  output params
+			oUserId = statement.getLong(6);
+			oFileId = statement.getLong(7);
+			oDataId = statement.getLong(8);
+			
+			System.out.println(oUserId + ".." + oFileId + ".." + oDataId);
+		} catch (Exception e) {
+			System.out.println(e.getMessage());
+		} finally {
+			if (inStream != null) {
+				IOUtils.closeQuietly(inStream);
+			}
+			if (conn != null) {
+				try {
+					conn.close();
+				} catch (Exception exi) { }
+			}
+		}
+	}
 }
