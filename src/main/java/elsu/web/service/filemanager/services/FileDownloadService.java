@@ -17,6 +17,8 @@ import org.apache.commons.fileupload.util.*;
 import org.apache.commons.io.IOUtils;
 import org.apache.commons.lang3.*;
 
+import com.fasterxml.jackson.databind.*;
+
 import elsu.web.service.filemanager.application.*;
 import elsu.web.service.filemanager.resources.*;
 
@@ -262,6 +264,147 @@ public class FileDownloadService extends BaseConfigManager {
 		fdt.imageData = baos.toByteArray();
 		IOUtils.closeQuietly(baos);
 		return fdt;
+	}
+
+	@POST
+	@Path("/list")
+	@Consumes(MediaType.MULTIPART_FORM_DATA)
+	@Produces(MediaType.APPLICATION_JSON)
+	public Response retreiveList() {
+		List<String> uploaded = new ArrayList<String>();
+		FileUserType fut = new FileUserType();
+		String userName = "", data = "", jsonString = "";
+
+		try {
+			this.initializeService();
+			
+			fileStoreType = config.getProperty("application.service.fileStore.type").toString();
+			fileStorePath = config.getProperty("application.service.fileStore.path").toString();
+			dbJDBC = config.getProperty("application.service.database.jdbc").toString();
+			dbDriver = config.getProperty("application.service.database.driver").toString();
+			dbHost = config.getProperty("application.service.database.host").toString();
+			dbPort = config.getProperty("application.service.database.port").toString();
+			dbDatabase = config.getProperty("application.service.database.database").toString();
+			dbOptionalParams = config.getProperty("application.service.database.optionalParameters").toString();
+			dbUser = config.getProperty("application.service.database.user").toString();
+			dbPassword = config.getProperty("application.service.database.password").toString();
+			bufferSize = Integer.valueOf(config.getProperty("application.service.fileDownload.bufferSize").toString());
+		} catch (Exception e) {
+			System.out.println(e);
+			e.printStackTrace();
+			return Response.status(Response.Status.INTERNAL_SERVER_ERROR).entity(e.getMessage())
+					.header("Access-Control-Allow-Origin", "*").header("Access-Control-Allow-Methods", "POST")
+					.build();
+		}
+
+		if (ServletFileUpload.isMultipartContent(request)) {
+			System.out.println("multipart form data");
+
+			final FileItemFactory factory = new DiskFileItemFactory();
+			ServletFileUpload fileUpload = new ServletFileUpload(factory);
+
+			try {
+				FileItemIterator iter = fileUpload.getItemIterator(request);
+
+				while (iter.hasNext()) {
+					final FileItemStream item = iter.next();
+					final String fieldName = item.getFieldName();
+					// final String fieldValue = item.getString();
+
+					InputStream stream = item.openStream();
+
+					if (item.isFormField()) {
+						data = Streams.asString(stream);
+						System.out.println("Field Name: " + fieldName + ", Value: " + data);
+
+						if (fieldName.equals("userName")) {
+							userName = data;
+
+							fut = retrieveUserList(userName);
+							
+							ObjectMapper mapper = new ObjectMapper();
+							jsonString = mapper.writeValueAsString(fut);
+						}
+					}
+					IOUtils.closeQuietly(stream);
+				}
+			} catch (FileUploadException e) {
+				System.out.println(e);
+				e.printStackTrace();
+				return Response.status(Response.Status.INTERNAL_SERVER_ERROR).entity(e.getMessage())
+						.header("Access-Control-Allow-Origin", "*").header("Access-Control-Allow-Methods", "POST")
+						.build();
+			} catch (Exception e) {
+				System.out.println(e);
+				e.printStackTrace();
+				return Response.status(Response.Status.INTERNAL_SERVER_ERROR).entity(e.getMessage())
+						.header("Access-Control-Allow-Origin", "*").header("Access-Control-Allow-Methods", "POST")
+						.build();
+			}
+		}
+		System.out.println(request.getContentType() + "//" + jsonString);
+
+		return Response.ok(jsonString)
+				.header("Content-Disposition", "").build();
+	}
+
+	FileUserType retrieveUserList(String user) {
+		FileUserType fut = new FileUserType();
+		InputStream outStream = null;
+		ByteArrayOutputStream baos = new ByteArrayOutputStream();
+
+		try {
+			Class.forName(dbDriver).newInstance();
+		} catch (Exception e) {
+			System.out.println(e.getMessage());
+
+		}
+
+		String mysqlURL = "jdbc:" + dbJDBC + "://"+dbHost+":"+dbPort+"/" + dbDatabase + "?" + dbOptionalParams;
+		Properties properties = new java.util.Properties();
+		properties.setProperty("user", dbUser);
+		properties.setProperty("password", dbPassword);
+
+		java.sql.Connection conn = null;
+		try {
+			conn = java.sql.DriverManager.getConnection(mysqlURL, properties);
+
+			String sql = "select user_id, username, file_id, filename, ispublic, mimetype, date_updated "
+					+ "from vwFile " + "where username = ?";
+			PreparedStatement statement = conn.prepareStatement(sql);
+			System.out.println(user);
+			statement.setString(1, user);
+			ResultSet rs = statement.executeQuery();
+
+			fut.setUserName(user);
+			while (rs.next()) {
+		      fut.setUserId(rs.getLong(1));
+		      fut.setUserName(rs.getString(2));
+		      
+		      FileFileType fft = new FileFileType();
+		      fft.setFileId(rs.getLong(3));
+		      fft.setFileName(rs.getString(4));
+		      fft.setIsPublic(rs.getString(5));
+		      fft.setMimeType(rs.getString(6));
+		      fft.setDateUpdated(rs.getTimestamp(7));
+		      
+		      fut.getFileList().add(fft);
+	      }
+		} catch (Exception e) {
+			System.out.println(e.getMessage());
+		} finally {
+			if (outStream != null) {
+				IOUtils.closeQuietly(outStream);
+			}
+			if (conn != null) {
+				try {
+					conn.close();
+				} catch (Exception exi) {
+				}
+			}
+		}
+
+		return fut;
 	}
 
 }

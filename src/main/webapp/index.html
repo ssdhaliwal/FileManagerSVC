@@ -110,6 +110,7 @@ button {
 			<label>User Name:</label><input type="text" id="dUserName"></input></br> <label>File
 				Name:</label><input type="text" id="dFileName"></input></br>
 			<button id="download-button">Download</button>
+			<button id="list-button">List</button>
 			</br> </br>
 			<div id="download-content"></div>
 			<div id="error-message"></div>
@@ -119,17 +120,17 @@ button {
 		// https://developer.mozilla.org/en-US/docs/Web/API/TextDecoder/TextDecoder#Parameters
 		// https://developer.mozilla.org/en-US/docs/Web/API/TextEncoder
 		function encodeArray(string) {
-			var enc = new TextEncoder();	// always utf-8
+			var enc = new TextEncoder(); // always utf-8
 			return enc.encode(string);
 		}
-		
+
 		// https://developer.mozilla.org/en-US/docs/Web/API/TextDecoder
 		function decodeArray(uintArray) {
 			var enc = new TextDecoder("utf-8");
 			var arr = new Uint8Array(uintArray);
 			return enc.decode(arr);
 		}
-		
+
 		function removeChildren(nodeName) {
 			var parentNode = document.getElementById(nodeName);
 			while (parentNode.firstChild) {
@@ -252,7 +253,7 @@ button {
 
 							var localdata = {
 								"fileName" : document
-									.querySelector('#dFileName').value,
+										.querySelector('#dFileName').value,
 								"userName" : document
 										.querySelector('#dUserName').value
 							};
@@ -325,6 +326,58 @@ button {
 							request.responseType = "arraybuffer";
 							request.open('post',
 									'/FileManagerSVC/rest/download/file');
+							request.send(data);
+						});
+		document
+				.querySelector('#list-button')
+				.addEventListener(
+						'click',
+						function() {
+							var data = new FormData(), request;
+
+							var localdata = {
+								"userName" : document
+										.querySelector('#dUserName').value
+							};
+							for (name in localdata) {
+								data.append(name, localdata[name]);
+							}
+
+							var request = new XMLHttpRequest();
+							request
+									.addEventListener(
+											'load',
+											function(e) {
+												document
+														.querySelector('#upload-progress').style.display = 'none';
+
+												if (request.status !== 200) {
+													document
+															.querySelector('#error-message').innerText = request.response.message;
+													document
+															.querySelector('#error-message').style.display = 'block';
+												} else {
+													removeChildren("download-content");
+													var contentType = request
+															.getResponseHeader("Content-Type");
+
+													console.log("not an image",
+															contentType);
+													var pNode = document
+															.createElement("P");
+													var tNode = document
+															.createTextNode(request.response);
+													pNode.appendChild(tNode);
+													document.getElementById(
+															"download-content")
+															.appendChild(pNode);
+
+													alert('File downloaded successfully');
+												}
+											});
+							request.responseType = "application/json";
+							request.open('post',
+									'/FileManagerSVC/rest/download/list');
 							request.send(data);
 						});
 	</script>
