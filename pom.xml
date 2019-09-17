@@ -4,13 +4,35 @@
 	<modelVersion>4.0.0</modelVersion>
 	<groupId>elsu.web.service</groupId>
 	<artifactId>FileManagerSVC</artifactId>
-	<packaging>war</packaging>
 	<version>0.0.1-SNAPSHOT</version>
 	<name>FileManagerSVC Maven Webapp</name>
 	<url>http://maven.apache.org</url>
+
+	<packaging>war</packaging>
+	
 	<build>
 		<finalName>FileManagerSVC</finalName>
+		<resources>
+			<resource>
+				<directory>src</directory>
+				<excludes>
+					<exclude>**/*.java</exclude>
+				</excludes>
+			</resource>
+		</resources>
 		<plugins>
+			<!-- download source code in Eclipse, best practice -->
+			<plugin>
+				<groupId>org.apache.maven.plugins</groupId>
+				<artifactId>maven-eclipse-plugin</artifactId>
+				<version>2.9</version>
+				<configuration>
+					<downloadSources>true</downloadSources>
+					<downloadJavadocs>false</downloadJavadocs>
+				</configuration>
+			</plugin>
+		
+			<!-- Set a JDK compiler level -->
 			<plugin>
 				<artifactId>maven-compiler-plugin</artifactId>
 				<version>3.7.0</version>
@@ -19,16 +41,35 @@
 					<target>1.7</target>
 				</configuration>
 			</plugin>
+			
+			<!-- Make this war executable -->
+			<plugin>
+				<groupId>org.apache.maven.plugins</groupId>
+				<artifactId>maven-war-plugin</artifactId>
+				<version>2.6</version>
+				<configuration>
+					<outputDirectory>${project.basedir}/build</outputDirectory>
+				</configuration>
+			</plugin>
+			
+			<!-- Copy dependencies -->
+			<plugin>
+				<artifactId>maven-dependency-plugin</artifactId>
+				<executions>
+					<execution>
+						<phase>install</phase>
+						<goals>
+							<goal>copy-dependencies</goal>
+						</goals>
+						<configuration>
+							<outputDirectory>${project.basedir}/build</outputDirectory>
+						</configuration>
+					</execution>
+				</executions>
+			</plugin>
 		</plugins>
 	</build>
 	<dependencies>
-		<dependency>
-			<groupId>junit</groupId>
-			<artifactId>junit</artifactId>
-			<version>3.8.1</version>
-			<scope>test</scope>
-		</dependency>
-
 		<dependency>
 			<groupId>org.glassfish.jersey.core</groupId>
 			<artifactId>jersey-server</artifactId>
@@ -104,6 +145,11 @@
 			<version>5.1.48</version>
 		</dependency>
 
+		<dependency>
+			<groupId>elsu.foundation</groupId>
+			<artifactId>ElsuFoundation</artifactId>
+			<version>0.0.1-SNAPSHOT</version>
+		</dependency>
 	</dependencies>
 
 </project>
