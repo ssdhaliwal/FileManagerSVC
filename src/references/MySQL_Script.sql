@@ -1,6 +1,8 @@
 drop database if exists filemanagersvc;
 create database filemanagersvc;
 
+SET SQL_SAFE_UPDATES = 0;
+
 DELETE FROM mysql.user WHERE user = 'filemanageruser';
 grant all privileges on filemanagersvc.* to 'filemanageruser'@'%' identified by 'fmcu';
 

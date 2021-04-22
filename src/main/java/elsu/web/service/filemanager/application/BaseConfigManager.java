@@ -52,10 +52,13 @@ public abstract class BaseConfigManager {
 
 				resources.add("app.config", appConfig);
 				ConfigLoader.setLocalPath(appPath);
+				ConfigLoader.setResourcePath(appPath + "/" + appConfig);
 				//ConfigLoader.setLogPath(appPath);
+				System.out.println("appPath, " + appPath);
+				System.out.println(appPath + "/" + appConfig);
 
 				try {
-					config = new ConfigLoader(appConfig, null);
+					config = new ConfigLoader();
 
 					config.addProperty("application.framework.attributes.key.config.dump", configDump);
 					
